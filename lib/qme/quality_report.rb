@@ -119,14 +119,21 @@ module QME
     # Determines whether the patient mapping for the quality report has been
     # completed
     def patients_cached?
-      !QME::QualityReport.where({measure_id: self.measure_id,sub_id:self.sub_id, effective_date: self.effective_date, test_id: self.test_id, "status.state" => "completed" }).first.nil?
+      #!QME::QualityReport.where({measure_id: self.measure_id,sub_id:self.sub_id, effective_date: self.effective_date, test_id: self.test_id, "status.state" => "completed" }).first.nil?
+	!QME::PatientCache.where(patient_cache_matcher)
     end
 
 
      # Determines whether the patient mapping for the quality report has been
     # queued up by another quality report or if it is currently running
     def calculation_queued_or_running?
-      !QME::QualityReport.where({measure_id: self.measure_id,sub_id:self.sub_id, effective_date: self.effective_date, test_id: self.test_id }).nin("status.state" =>["unknown","stagged"]).first.nil?
+      #!QME::QualityReport.where({measure_id: self.measure_id,sub_id:self.sub_id, effective_date: self.effective_date, test_id: self.test_id }).nin("status.state" =>["unknown","stagged"]).first.nil?
+      if (self.attributes['filters']['providers'])
+        pId = self.attributes['filters']['providers'].first()
+        !QME::QualityReport.where({"filters.providers" => pId, measure_id: self.measure_id,sub_id:self.sub_id, effective_date: self.effective_date }).nin("status.state" =>["unknown","stagged"]).first.nil?
+      else
+        false
+      end
     end
 
     # Kicks off a background job to calculate the measure
@@ -141,7 +148,7 @@ module QME
       end
 
       self.status["state"] = "queued"
-      if (asynchronous)
+      if (!asynchronous)
         options[:asynchronous] = true
         if patients_cached?
           QME::QualityReport.enque_job(options,:rollup)

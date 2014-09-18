@@ -194,13 +194,25 @@ module QME
       # in the patient_cache collection. These documents will state the measure groups
       # that the record belongs to, such as numerator, etc.
       def map_records_into_measure_groups(prefilter={})
+
+        pId = BSON::ObjectId.from_string(@parameter_values['filters']['providers'].first())
+        newPrefilter = prefilter.merge("provider_performances.provider_id" => pId)
+
         measure = Builder.new(get_db(), @measure_def, @parameter_values)
         get_db().command(:mapreduce => 'records',
                          :map => measure.map_function,
                          :reduce => "function(key, values){return values;}",
                          :out => {:reduce => 'patient_cache', :sharded => true},
                          :finalize => measure.finalize_function,
-                         :query => prefilter)
+                         :query => newPrefilter)
+
+        # get_db().command(:mapreduce => 'records',
+        #                 :map => measure.map_function,
+        #                 :reduce => "function(key, values){return values;}",
+        #                 :out => {:reduce => 'patient_cache', :sharded => true},
+        #                 :finalize => measure.finalize_function,
+        #                 :query => prefilter)
+
         QME::ManualExclusion.apply_manual_exclusions(@measure_id,@sub_id)
       end
 
